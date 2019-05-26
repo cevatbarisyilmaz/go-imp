@@ -6,12 +6,12 @@ import (
 )
 
 type Conn interface {
-	Read() (b []byte, err error)
-	Write(b []byte) (n int, err error)
+	Read() ([]byte, error)
+	Write(b []byte) error
 	Close() error
 	LocalAddr() addr.Addr
 	RemoteAddr() addr.Addr
-	SetDeadline(t time.Time) error
-	SetReadDeadline(t time.Time) error
-	SetWriteDeadline(t time.Time) error
+	SetDeadline(time.Time) error
+	SetReadDeadline(time.Time) error
+	SetWriteDeadline(time.Time) error
 }

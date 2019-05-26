@@ -30,7 +30,7 @@ func Test(t *testing.T) {
 		if string(msg) != "Hi!" {
 			t.Fatal("wrong message recieved: ", string(msg))
 		}
-		_, err = conn.Write([]byte("Hey!"))
+		err = conn.Write([]byte("Hey!"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -48,7 +48,7 @@ func Test(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = conn.Write([]byte("Hi!"))
+		err = conn.Write([]byte("Hi!"))
 		if err != nil {
 			t.Fatal(err)
 		}

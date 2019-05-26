@@ -68,7 +68,7 @@ func (conn *Conn) Read() ([]byte, error) {
 	return messageBuffer, nil
 }
 
-func (conn *Conn) Write(b []byte) (int, error) {
+func (conn *Conn) Write(b []byte) error {
 	sizeBuffer := make([]byte, messageSizeLength)
 	binary.BigEndian.PutUint64(sizeBuffer, uint64(len(b)))
 	left := messageSizeLength
@@ -78,7 +78,7 @@ func (conn *Conn) Write(b []byte) (int, error) {
 		left -= n
 		if err != nil {
 			if retry == maxRetry {
-				return 0, err
+				return err
 			}
 			if nerr, ok := err.(net.Error); ok {
 				if nerr.Temporary() {
@@ -86,7 +86,7 @@ func (conn *Conn) Write(b []byte) (int, error) {
 					retry++
 				}
 			} else {
-				return 0, err
+				return err
 			}
 		}
 	}
@@ -97,7 +97,7 @@ func (conn *Conn) Write(b []byte) (int, error) {
 		left -= n
 		if err != nil {
 			if retry == maxRetry {
-				return len(b) - left, err
+				return err
 			}
 			if nerr, ok := err.(net.Error); ok {
 				if nerr.Temporary() {
@@ -105,11 +105,11 @@ func (conn *Conn) Write(b []byte) (int, error) {
 					retry++
 				}
 			} else {
-				return len(b) - left, err
+				return err
 			}
 		}
 	}
-	return len(b), nil
+	return nil
 }
 
 func (conn *Conn) LocalAddr() addr.Addr {
