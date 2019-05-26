@@ -1,7 +1,7 @@
 package transport
 
 import (
-	"github.com/cevatbarisyilmaz/imp-go/addr"
+	"github.com/cevatbarisyilmaz/go-imp/addr"
 	"time"
 )
 

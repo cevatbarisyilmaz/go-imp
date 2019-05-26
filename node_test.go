@@ -1,7 +1,8 @@
 package imp_test
 
 import (
-	"github.com/cevatbarisyilmaz/imp-go/addr"
+	"github.com/cevatbarisyilmaz/go-imp"
+	"github.com/cevatbarisyilmaz/go-imp/addr"
 	"net"
 	"sync"
 	"testing"

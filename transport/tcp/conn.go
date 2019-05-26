@@ -2,7 +2,7 @@ package tcp
 
 import (
 	"encoding/binary"
-	"github.com/cevatbarisyilmaz/imp-go/addr"
+	"github.com/cevatbarisyilmaz/go-imp/addr"
 	"net"
 	"time"
 )

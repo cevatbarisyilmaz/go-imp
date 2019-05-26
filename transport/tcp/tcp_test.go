@@ -1,8 +1,8 @@
 package tcp_test
 
 import (
-	"github.com/cevatbarisyilmaz/imp-go/addr"
-	"github.com/cevatbarisyilmaz/imp-go/transport/tcp"
+	"github.com/cevatbarisyilmaz/go-imp/addr"
+	"github.com/cevatbarisyilmaz/go-imp/transport/tcp"
 	"net"
 	"sync"
 	"testing"

@@ -1,8 +1,8 @@
 package transport_test
 
 import (
-	"github.com/cevatbarisyilmaz/imp-go/addr"
-	"github.com/cevatbarisyilmaz/imp-go/transport"
+	"github.com/cevatbarisyilmaz/go-imp/addr"
+	"github.com/cevatbarisyilmaz/go-imp/transport"
 	"net"
 	"testing"
 )

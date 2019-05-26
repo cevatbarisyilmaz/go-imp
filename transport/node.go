@@ -3,9 +3,9 @@ package transport
 import (
 	"crypto/rsa"
 	"errors"
-	"github.com/cevatbarisyilmaz/imp-go/addr"
-	"github.com/cevatbarisyilmaz/imp-go/transport/conn"
-	"github.com/cevatbarisyilmaz/imp-go/transport/tcp"
+	"github.com/cevatbarisyilmaz/go-imp/addr"
+	conn "github.com/cevatbarisyilmaz/go-imp/transport/conn"
+	"github.com/cevatbarisyilmaz/go-imp/transport/tcp"
 	"time"
 )
 

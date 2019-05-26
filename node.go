@@ -3,9 +3,9 @@ package imp
 import (
 	"crypto/rsa"
 	"errors"
-	"github.com/cevatbarisyilmaz/imp-go/addr"
-	"github.com/cevatbarisyilmaz/imp-go/transport"
-	"github.com/cevatbarisyilmaz/imp-go/transport/conn"
+	"github.com/cevatbarisyilmaz/go-imp/addr"
+	"github.com/cevatbarisyilmaz/go-imp/transport"
+	conn "github.com/cevatbarisyilmaz/go-imp/transport/conn"
 	"sync"
 	"time"
 )
