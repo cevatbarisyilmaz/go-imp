@@ -18,26 +18,37 @@ var NoSuitableTransportNodesErr = errors.New("no local compatible transport node
 var DeadlinePassedErr = errors.New("deadline passed for accepting new connection")
 
 type Node struct {
-	PrivateKey  *rsa.PrivateKey
+	privateKey  *rsa.PrivateKey
 	addrs       map[addr.Addr]transport.Node
-	addrsMu     sync.RWMutex
+	addrsMu     *sync.RWMutex
 	connChan    chan conn.Conn
 	active      bool
-	activeMu    sync.RWMutex
+	activeMu    *sync.RWMutex
 	deadline    time.Time
 	dialTimeout time.Duration
 	banList     map[addr.IP]bool
-	banMu       sync.RWMutex
+	banMu       *sync.RWMutex
+}
+
+func New(privateKey *rsa.PrivateKey) *Node {
+	return &Node{
+		privateKey:  privateKey,
+		addrs:       map[addr.Addr]transport.Node{},
+		addrsMu:     &sync.RWMutex{},
+		connChan:    make(chan conn.Conn, connChanLen),
+		active:      false,
+		activeMu:    &sync.RWMutex{},
+		deadline:    time.Time{},
+		dialTimeout: 0,
+		banList:     map[addr.IP]bool{},
+		banMu:       &sync.RWMutex{},
+	}
 }
 
 func (node *Node) Start() {
-	node.connChan = make(chan conn.Conn, connChanLen)
 	node.activeMu.Lock()
 	node.active = true
 	node.activeMu.Unlock()
-	if node.addrs == nil {
-		node.addrs = make(map[addr.Addr]transport.Node)
-	}
 	go func() {
 		for {
 			node.activeMu.RLock()
@@ -72,19 +83,14 @@ func (node *Node) AddAddr(laddr addr.Addr) error {
 	if err != nil {
 		return err
 	}
-	transportNode.SetPrivateKey(node.PrivateKey)
+	transportNode.SetPrivateKey(node.privateKey)
 	node.banMu.RLock()
-	if node.banList != nil {
-		for ip := range node.banList {
-			transportNode.Ban(ip)
-		}
+	for ip := range node.banList {
+		transportNode.Ban(ip)
 	}
 	node.banMu.RUnlock()
 	node.addrsMu.Lock()
 	defer node.addrsMu.Unlock()
-	if node.addrs == nil {
-		node.addrs = make(map[addr.Addr]transport.Node)
-	}
 	node.addrs[laddr] = transportNode
 	return nil
 }
@@ -93,9 +99,6 @@ func (node *Node) RemoveAddr(laddr addr.Addr) error {
 	node.addrsMu.Lock()
 	defer node.addrsMu.Unlock()
 	transportNode := node.addrs[laddr]
-	if transportNode == nil {
-		return TransportNodeNotFoundErr
-	}
 	delete(node.addrs, laddr)
 	return transportNode.Close()
 }
@@ -167,9 +170,6 @@ func (node *Node) Close() error {
 }
 
 func (node *Node) Addrs() []addr.Addr {
-	if node.addrs == nil {
-		return []addr.Addr{}
-	}
 	addrs := make([]addr.Addr, 0)
 	for a := range node.addrs {
 		addrs = append(addrs, a)
@@ -179,9 +179,6 @@ func (node *Node) Addrs() []addr.Addr {
 
 func (node *Node) Ban(raddr addr.IP) {
 	node.banMu.Lock()
-	if node.banList == nil {
-		node.banList = make(map[addr.IP]bool)
-	}
 	node.banList[raddr] = true
 	for _, transportNode := range node.addrs {
 		transportNode.Ban(raddr)
