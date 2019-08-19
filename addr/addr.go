@@ -12,8 +12,7 @@ type Proto byte
 type IPv bool
 
 const (
-	ProtoIP Proto = iota
-	ProtoUDP
+	ProtoUDP Proto = iota
 	ProtoTCP
 )
 
@@ -72,8 +71,6 @@ func (addr Addr) Network() string {
 		return "tcp"
 	case ProtoUDP:
 		return "udp"
-	case ProtoIP:
-		return "ip"
 	default:
 		return "<invalid>"
 	}
@@ -84,8 +81,6 @@ func (addr Addr) String() string {
 		return addr.ToTCPAddr().String()
 	case ProtoUDP:
 		return addr.ToUDPAddr().String()
-	case ProtoIP:
-		return addr.ToIPAddr().String()
 	default:
 		return "<invalid>"
 	}
@@ -103,7 +98,7 @@ func UDPToAddr(udpAddr *net.UDPAddr) Addr {
 	var addr Addr
 	copy(addr[0:16], udpAddr.IP.To16())
 	binary.BigEndian.PutUint16(addr[16:18], uint16(udpAddr.Port))
-	addr[18] = byte(ProtoTCP)
+	addr[18] = byte(ProtoUDP)
 	return addr
 }
 
@@ -130,6 +125,10 @@ func NetIPToIP(i net.IP) IP {
 	var ip [16]byte
 	copy(ip[:], i.To16())
 	return ip
+}
+
+func IPv4(a, b, c, d byte) IP {
+	return NetIPToIP(net.IPv4(a, b, c, d))
 }
 
 func (port Port) ToUint16() uint16 {

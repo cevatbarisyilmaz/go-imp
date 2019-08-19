@@ -12,12 +12,11 @@ func Test(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		node := imp.New(nil)
+		node := imp.New()
 		err := node.AddAddr(addr.NewAddr(addr.NetIPToIP(net.IPv4(127, 0, 0, 2)), addr.IntToPort(1789), addr.ProtoTCP))
 		if err != nil {
 			t.Fatal(err)
 		}
-		node.Start()
 		conn, err := node.Accept()
 		if err != nil {
 			t.Fatal(err)
@@ -35,12 +34,11 @@ func Test(t *testing.T) {
 		}
 		wg.Done()
 	}()
-	node := imp.New(nil)
+	node := imp.New()
 	err := node.AddAddr(addr.NewAddr(addr.NetIPToIP(net.IPv4(127, 0, 0, 2)), addr.IntToPort(1919), addr.ProtoTCP))
 	if err != nil {
 		t.Fatal(err)
 	}
-	node.Start()
 	conn, err := node.Dial(addr.NewAddr(addr.NetIPToIP(net.IPv4(127, 0, 0, 2)), addr.IntToPort(1789), addr.ProtoTCP))
 	if err != nil {
 		t.Fatal(err)

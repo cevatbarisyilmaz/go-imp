@@ -1,24 +1,19 @@
 package transport
 
 import (
-	"crypto/rsa"
 	"errors"
 	"github.com/cevatbarisyilmaz/go-imp/addr"
 	conn "github.com/cevatbarisyilmaz/go-imp/transport/conn"
 	"github.com/cevatbarisyilmaz/go-imp/transport/tcp"
-	"time"
+	"github.com/cevatbarisyilmaz/go-imp/transport/udp"
 )
 
-var UnimplementedErr = errors.New("unimplemented protocol")
 var UnknownErr = errors.New("unknown protocol")
 
 type Node interface {
-	SetPrivateKey(*rsa.PrivateKey)
 	Dial(addr.Addr) (conn.Conn, error)
 	Accept() (conn.Conn, error)
 	Ban(addr.IP)
-	SetDeadline(time.Time) error
-	SetDialTimeout(time.Duration)
 	Close() error
 	Addr() addr.Addr
 }
@@ -26,11 +21,9 @@ type Node interface {
 func New(laddr addr.Addr) (Node, error) {
 	switch laddr.Proto() {
 	case addr.ProtoTCP:
-		return tcp.New(laddr.ToTCPAddr())
+		return tcp.New(laddr)
 	case addr.ProtoUDP:
-		return nil, UnimplementedErr
-	case addr.ProtoIP:
-		return nil, UnimplementedErr
+		return udp.New(laddr)
 	default:
 		return nil, UnknownErr
 	}

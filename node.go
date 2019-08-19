@@ -1,7 +1,6 @@
 package imp
 
 import (
-	"crypto/rsa"
 	"errors"
 	"github.com/cevatbarisyilmaz/go-imp/addr"
 	"github.com/cevatbarisyilmaz/go-imp/transport"
@@ -10,72 +9,34 @@ import (
 	"time"
 )
 
-const connChanLen = 7
-const deadlineDuration = time.Second * 7
+const connChanSize = 7
+const timeout = time.Duration(time.Second * 10)
 
-var TransportNodeNotFoundErr = errors.New("no transport node is found for given address")
-var NoSuitableTransportNodesErr = errors.New("no local compatible transport node is found for given remote address")
-var DeadlinePassedErr = errors.New("deadline passed for accepting new connection")
+var ErrNoSuitableTransportNodes = errors.New("no local compatible transport node is found for given remote address")
+var ErrNodeClosed = errors.New("this IMP node is closed")
+
+type Conn conn.Conn
 
 type Node struct {
-	privateKey  *rsa.PrivateKey
-	addrs       map[addr.Addr]transport.Node
-	addrsMu     *sync.RWMutex
-	connChan    chan conn.Conn
-	active      bool
-	activeMu    *sync.RWMutex
-	deadline    time.Time
-	dialTimeout time.Duration
-	banList     map[addr.IP]bool
-	banMu       *sync.RWMutex
+	addrs    map[addr.Addr]transport.Node
+	addrsMu  *sync.RWMutex
+	connChan chan conn.Conn
+	active   bool
+	activeMu *sync.RWMutex
+	banList  map[addr.IP]bool
+	banMu    *sync.RWMutex
 }
 
-func New(privateKey *rsa.PrivateKey) *Node {
+func New() *Node {
 	return &Node{
-		privateKey:  privateKey,
-		addrs:       map[addr.Addr]transport.Node{},
-		addrsMu:     &sync.RWMutex{},
-		connChan:    make(chan conn.Conn, connChanLen),
-		active:      false,
-		activeMu:    &sync.RWMutex{},
-		deadline:    time.Time{},
-		dialTimeout: 0,
-		banList:     map[addr.IP]bool{},
-		banMu:       &sync.RWMutex{},
+		addrs:    map[addr.Addr]transport.Node{},
+		addrsMu:  &sync.RWMutex{},
+		connChan: make(chan conn.Conn, connChanSize),
+		active:   true,
+		activeMu: &sync.RWMutex{},
+		banList:  map[addr.IP]bool{},
+		banMu:    &sync.RWMutex{},
 	}
-}
-
-func (node *Node) Start() {
-	node.activeMu.Lock()
-	node.active = true
-	node.activeMu.Unlock()
-	go func() {
-		for {
-			node.activeMu.RLock()
-			if !node.active {
-				node.activeMu.RUnlock()
-				return
-			}
-			node.activeMu.RUnlock()
-			node.addrsMu.RLock()
-			wg := sync.WaitGroup{}
-			for _, transportNode := range node.addrs {
-				err := transportNode.SetDeadline(time.Now().Add(deadlineDuration))
-				if err != nil {
-					continue
-				}
-				wg.Add(1)
-				go func() {
-					c, err := transportNode.Accept()
-					if err == nil {
-						node.connChan <- c
-					}
-					wg.Done()
-				}()
-			}
-			wg.Wait()
-		}
-	}()
 }
 
 func (node *Node) AddAddr(laddr addr.Addr) error {
@@ -83,15 +44,23 @@ func (node *Node) AddAddr(laddr addr.Addr) error {
 	if err != nil {
 		return err
 	}
-	transportNode.SetPrivateKey(node.privateKey)
+	node.addrsMu.Lock()
+	defer node.addrsMu.Unlock()
 	node.banMu.RLock()
+	defer node.banMu.RUnlock()
 	for ip := range node.banList {
 		transportNode.Ban(ip)
 	}
-	node.banMu.RUnlock()
-	node.addrsMu.Lock()
-	defer node.addrsMu.Unlock()
 	node.addrs[laddr] = transportNode
+	go func() {
+		for {
+			c, err := transportNode.Accept()
+			if err != nil {
+				return
+			}
+			node.connChan <- c
+		}
+	}()
 	return nil
 }
 
@@ -103,15 +72,17 @@ func (node *Node) RemoveAddr(laddr addr.Addr) error {
 	return transportNode.Close()
 }
 
-func (node *Node) Dial(raddr addr.Addr) (conn.Conn, error) {
+func (node *Node) Dial(raddr addr.Addr) (Conn, error) {
+	node.activeMu.RLock()
+	if !node.active {
+		node.activeMu.RUnlock()
+		return nil, ErrNodeClosed
+	}
 	node.addrsMu.RLock()
 	defer node.addrsMu.RUnlock()
 	var err error
 	for laddr, transportNode := range node.addrs {
 		if laddr.Compatible(raddr) {
-			if node.dialTimeout != time.Duration(0) {
-				transportNode.SetDialTimeout(node.dialTimeout)
-			}
 			c, e := transportNode.Dial(raddr)
 			if e != nil {
 				if err == nil {
@@ -125,31 +96,29 @@ func (node *Node) Dial(raddr addr.Addr) (conn.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return nil, NoSuitableTransportNodesErr
+	return nil, ErrNoSuitableTransportNodes
 }
 
-func (node *Node) Accept() (conn.Conn, error) {
-	if node.deadline.Equal(time.Time{}) {
-		return <-node.connChan, nil
+func (node *Node) Accept() (Conn, error) {
+	node.activeMu.RLock()
+	if !node.active {
+		node.activeMu.RUnlock()
+		return nil, ErrNodeClosed
 	}
-	if node.deadline.Before(time.Now()) {
-		return nil, DeadlinePassedErr
+	node.activeMu.RUnlock()
+	for {
+		select {
+		case c := <-node.connChan:
+			return c, nil
+		case <-time.Tick(timeout):
+			node.activeMu.RLock()
+			if !node.active {
+				node.activeMu.RUnlock()
+				return nil, ErrNodeClosed
+			}
+			node.activeMu.RUnlock()
+		}
 	}
-	select {
-	case <-time.Tick(node.deadline.Sub(time.Now())):
-		return nil, DeadlinePassedErr
-	case c := <-node.connChan:
-		return c, nil
-	}
-}
-
-func (node *Node) SetAcceptDeadline(deadline time.Time) error {
-	node.deadline = deadline
-	return nil
-}
-
-func (node *Node) SetDialTimeout(timeout time.Duration) {
-	node.dialTimeout = timeout
 }
 
 func (node *Node) Close() error {
@@ -178,10 +147,12 @@ func (node *Node) Addrs() []addr.Addr {
 }
 
 func (node *Node) Ban(raddr addr.IP) {
+	node.addrsMu.RLock()
+	defer node.addrsMu.RUnlock()
 	node.banMu.Lock()
+	defer node.banMu.Unlock()
 	node.banList[raddr] = true
 	for _, transportNode := range node.addrs {
 		transportNode.Ban(raddr)
 	}
-	node.banMu.Unlock()
 }
